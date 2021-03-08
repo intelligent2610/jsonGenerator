@@ -9,13 +9,28 @@ class JsonGen {
   bool hasConstructor = true;
   bool hasCopyWith = true;
   bool hasTryCatch = true;
+  String pathLog;
 
   Map<String, Map<KeyModel, dynamic>> listSubClass =
       <String, Map<KeyModel, dynamic>>{};
 
-  void initJson(String text) {
+  void initJson(
+    String text, {
+    bool useEquatable,
+    bool hasConstructor,
+    bool hasCopyWith,
+    bool hasTryCatch,
+    String pathLog,
+  }) {
+    this.useEquatable = useEquatable;
+    this.hasConstructor = hasConstructor;
+    this.hasCopyWith = hasCopyWith;
+    this.hasTryCatch = hasTryCatch;
+    this.pathLog = pathLog;
+
     ///Convert string to json
     jsonMap = json.decode(text);
+    listSubClass.clear();
   }
 
   ///Create Class
@@ -27,7 +42,7 @@ class JsonGen {
   }
 
   String doGen() {
-    return "${hasTryCatch ? "import 'log_utils.dart';\n\n" : ""}" +
+    return "${hasTryCatch ? "${pathLog.isNotEmpty ? pathLog : "import 'log_utils.dart'"};\n\n" : ""}" +
         listSubClass.entries
             .map((e) => "class ${e.key}{\n"
                 "${genFields(e.value)}\n"
@@ -50,7 +65,7 @@ class JsonGen {
   ///Generate Fields
   String genFields(Map<KeyModel, dynamic> data) {
     return data.entries
-        .map((e) => "${e.value} ${e.key.key};")
+        .map((e) => "${useEquatable ? "final " : ""}${e.value} ${e.key.key};")
         .toList()
         .join("\n");
   }
