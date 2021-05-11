@@ -42,9 +42,11 @@ class JsonGen {
   }
 
   String doGen() {
-    return "${hasTryCatch ? "${pathLog.isNotEmpty ? pathLog : "import 'log_utils.dart'"};\n\n" : ""}" +
+    return "${useEquatable ? "import 'package:equatable/equatable.dart';\n" : ""}" +
+        "${hasTryCatch ? "${pathLog.isNotEmpty ? pathLog : "import 'log_utils.dart'"};\n\n" : ""}" +
         listSubClass.entries
-            .map((e) => "class ${e.key}{\n"
+            .map((e) =>
+                "class ${e.key} ${useEquatable ? "extends Equatable" : ""}{\n"
                 "${genFields(e.value)}\n"
                 "\n"
                 "${genConstructor(className: e.key, data: e.value)}"
@@ -56,7 +58,10 @@ class JsonGen {
                 "${genFromJson(className: e.key, data: e.value)}"
                 "\n"
                 "\n"
-                "${genToJson(className: e.key, data: e.value)}"
+                "${genToJson(data: e.value)}"
+                "\n"
+                "\n"
+                "${genProps(data: e.value)}"
                 "\n}")
             .toList()
             .join("\n\n");
@@ -93,19 +98,68 @@ class JsonGen {
   ///Generate factory fromJson
   String genFromJson({String className, Map<KeyModel, dynamic> data}) {
     return "factory $className.fromJson(Map<String, dynamic> json) {\n"
-        "${doWithTryCatch("final ${className.decapitalize()} = $className("
-            "${data.entries.map((e) => "${e.key.key}: json['${e.key.originalKey}'],").toList().join("\n")}\n"
+        "${doWithTryCatch("final ${className.decapitalize()} = $className(\n"
+            "${data.entries.map((e) => genFieldFromJson(e.key)).toList().join("\n")}\n"
             ");\n"
             "return ${className.decapitalize()};\n")}"
         "}";
   }
 
   ///Generate factory toJson
-  String genToJson({String className, Map<KeyModel, dynamic> data}) {
+  String genToJson({Map<KeyModel, dynamic> data}) {
     return "Map<String, dynamic> toJson() {\n"
         "final data = <String, dynamic>{};\n"
-        "${doWithTryCatch("${data.entries.map((e) => "data['${e.key.originalKey}'] = ${e.key.key};").toList().join("\n")}\n", hasReturnNull: false)}\nreturn data;\n"
+        "${doWithTryCatch("${data.entries.map((e) => genFieldToJson(e.key)).toList().join("\n")}\n", hasReturnNull: false)}\nreturn data;\n"
         "}";
+  }
+
+  ///Generate props
+  String genProps({Map<KeyModel, dynamic> data}) {
+    if (!useEquatable) {
+      return "";
+    }
+    return "@override\n"
+        "List<Object> get props => [\n"
+        "${data.entries.map((e) => '${e.key.key},').toList().join("\n")}\n"
+        "];";
+  }
+
+  /// ======================
+  String genFieldFromJson(KeyModel keyModel) {
+    if (keyModel.isArray) {
+      if (keyModel.isClass) {
+        return "${keyModel.key}: json['${keyModel.originalKey}'] != null ? json['${keyModel.originalKey}'].map<${keyModel.dataType}>((e)=>${keyModel.dataType}.fromJson(e)).toList():null,";
+      } else {
+        return "${keyModel.key}: json['${keyModel.originalKey}'] != null ? json['${keyModel.originalKey}'].cast<${keyModel.dataType}>(): null,";
+      }
+    } else {
+      if (keyModel.isClass) {
+        return "${keyModel.key}: json['${keyModel.originalKey}'] != null ? "
+            "${keyModel.dataType}.fromJson(json['${keyModel.originalKey}']):null,";
+      } else {
+        return "${keyModel.key}: json['${keyModel.originalKey}'],";
+      }
+    }
+  }
+
+  String genFieldToJson(KeyModel keyModel) {
+    if (keyModel.isArray) {
+      if (keyModel.isClass) {
+        return "if (this.${keyModel.key} != null) {\n"
+            "data['${keyModel.originalKey}'] = this.${keyModel.key}.map((v) => v.toJson()).toList();"
+            "\n}";
+      } else {
+        return "data['${keyModel.originalKey}'] = ${keyModel.key};";
+      }
+    } else {
+      if (keyModel.isClass) {
+        return "if (this.${keyModel.key} != null) {\n"
+            "data['${keyModel.originalKey}'] = this.${keyModel.key}.toJson();"
+            "\n}";
+      } else {
+        return "data['${keyModel.originalKey}'] = ${keyModel.key};";
+      }
+    }
   }
 
   /// ==================================================================================================
@@ -130,46 +184,84 @@ class JsonGen {
     try {
       data.entries.forEach((e) {
         if (e.value is String) {
-          field[KeyModel(key: genFieldName(e.key), originalKey: e.key)] =
-              "String";
+          field[KeyModel(
+            key: genFieldName(e.key),
+            originalKey: e.key,
+            dataType: 'String',
+          )] = "String";
         } else if (e.value is int) {
-          field[KeyModel(key: genFieldName(e.key), originalKey: e.key)] = "int";
+          field[KeyModel(
+            key: genFieldName(e.key),
+            originalKey: e.key,
+            dataType: 'int',
+          )] = "int";
         } else if (e.value is bool) {
-          field[KeyModel(key: genFieldName(e.key), originalKey: e.key)] =
-              "bool";
+          field[KeyModel(
+            key: genFieldName(e.key),
+            originalKey: e.key,
+            dataType: 'bool',
+          )] = "bool";
         } else if (e.value is double) {
-          field[KeyModel(key: genFieldName(e.key), originalKey: e.key)] =
-              "double";
+          field[KeyModel(
+            key: genFieldName(e.key),
+            originalKey: e.key,
+            dataType: 'double',
+          )] = "double";
         } else if (e.value is Map) {
           final subClassName = genClassName(e.key);
           if (!listSubClass.containsKey(subClassName)) {
             convertSubClass(e.value, subClassName);
           }
-          field[KeyModel(key: genFieldName(e.key), originalKey: e.key)] =
-              "$subClassName";
+          field[KeyModel(
+            key: genFieldName(e.key),
+            originalKey: e.key,
+            isClass: true,
+            dataType: subClassName,
+          )] = "$subClassName";
         } else if (e.value is List) {
           final List listData = e.value;
           if (listData.isNotEmpty) {
             final firstItem = listData[0];
             if (firstItem is String) {
-              field[KeyModel(key: genFieldName(e.key), originalKey: e.key)] =
-                  "List<String>";
+              field[KeyModel(
+                key: genFieldName(e.key),
+                originalKey: e.key,
+                isArray: true,
+                dataType: 'String',
+              )] = "List<String>";
             } else if (firstItem is int) {
-              field[KeyModel(key: genFieldName(e.key), originalKey: e.key)] =
-                  "List<int>";
+              field[KeyModel(
+                key: genFieldName(e.key),
+                originalKey: e.key,
+                isArray: true,
+                dataType: 'int',
+              )] = "List<int>";
             } else if (firstItem is bool) {
-              field[KeyModel(key: genFieldName(e.key), originalKey: e.key)] =
-                  "List<bool>";
+              field[KeyModel(
+                key: genFieldName(e.key),
+                originalKey: e.key,
+                isArray: true,
+                dataType: 'bool',
+              )] = "List<bool>";
             } else if (firstItem is double) {
-              field[KeyModel(key: genFieldName(e.key), originalKey: e.key)] =
-                  "List<double>";
+              field[KeyModel(
+                key: genFieldName(e.key),
+                originalKey: e.key,
+                isArray: true,
+                dataType: 'double',
+              )] = "List<double>";
             } else if (firstItem is Map) {
               final subClassName = genClassName(e.key);
               if (!listSubClass.containsKey(subClassName)) {
                 convertSubClass(firstItem, subClassName);
               }
-              field[KeyModel(key: genFieldName(e.key), originalKey: e.key)] =
-                  "List<$subClassName>";
+              field[KeyModel(
+                key: genFieldName(e.key),
+                originalKey: e.key,
+                isArray: true,
+                isClass: true,
+                dataType: subClassName,
+              )] = "List<$subClassName>";
             }
           }
         }

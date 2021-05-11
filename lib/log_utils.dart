@@ -2,10 +2,10 @@ import 'package:flutter/foundation.dart';
 
 class LogUtils {
   static void d(
-      dynamic data, {
-        String stacktrace,
-        bool fullStacktrace = false,
-      }) {
+    dynamic data, {
+    String stacktrace,
+    bool fullStacktrace = false,
+  }) {
     if (kReleaseMode) {
       return;
     }
@@ -15,7 +15,7 @@ class LogUtils {
       listLine.forEach(print);
     } else if (stacktrace?.isNotEmpty ?? false) {
       final listLine = stacktrace.split('\n');
-      listLine.isNotEmpty ? print(listLine[0]) : '';
+      if (listLine.isNotEmpty) print(listLine[0]);
     }
   }
 }
