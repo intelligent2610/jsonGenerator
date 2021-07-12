@@ -6,6 +6,7 @@ import 'log_utils.dart';
 class JsonGen {
   Map jsonMap;
   bool useEquatable = true;
+  bool useNullSafety = true;
   bool hasConstructor = true;
   bool hasCopyWith = true;
   bool hasTryCatch = true;
@@ -17,12 +18,14 @@ class JsonGen {
   void initJson(
     String text, {
     bool useEquatable,
+    bool useNullSafety,
     bool hasConstructor,
     bool hasCopyWith,
     bool hasTryCatch,
     String pathLog,
   }) {
     this.useEquatable = useEquatable;
+    this.useNullSafety = useNullSafety;
     this.hasConstructor = hasConstructor;
     this.hasCopyWith = hasCopyWith;
     this.hasTryCatch = hasTryCatch;
@@ -70,7 +73,8 @@ class JsonGen {
   ///Generate Fields
   String genFields(Map<KeyModel, dynamic> data) {
     return data.entries
-        .map((e) => "${useEquatable ? "final " : ""}${e.value} ${e.key.key};")
+        .map((e) =>
+            "${useEquatable ? "final " : ""}${e.value}${useNullSafety ? "?" : ""} ${e.key.key};")
         .toList()
         .join("\n");
   }
@@ -88,7 +92,7 @@ class JsonGen {
     if (!hasCopyWith) {
       return "";
     }
-    return "$className copyWith({\n${data.entries.map((e) => "${e.key.key},").toList().join("\n")}\n}) {\n"
+    return "$className copyWith({\n${data.entries.map((e) => "${e.value}${useNullSafety ? "?" : ""} ${e.key.key},").toList().join("\n")}\n}) {\n"
         "return $className(\n"
         "${data.entries.map((e) => "${e.key.key}: ${e.key.key} ?? this.${e.key.key},").toList().join("\n")}"
         ");\n"
@@ -120,7 +124,7 @@ class JsonGen {
     }
     return "@override\n"
         "List<Object> get props => [\n"
-        "${data.entries.map((e) => '${e.key.key},').toList().join("\n")}\n"
+        "${data.entries.map((e) => '${e.key.key}${useNullSafety ? "!" : ""},').toList().join("\n")}\n"
         "];";
   }
 
@@ -128,13 +132,13 @@ class JsonGen {
   String genFieldFromJson(KeyModel keyModel) {
     if (keyModel.isArray) {
       if (keyModel.isClass) {
-        return "${keyModel.key}: json['${keyModel.originalKey}'] != null ? json['${keyModel.originalKey}'].map<${keyModel.dataType}>((e)=>${keyModel.dataType}.fromJson(e)).toList():null,";
+        return "${keyModel.key}: json.containsKey('${keyModel.originalKey}') ? json['${keyModel.originalKey}']?.map<${keyModel.dataType}>((e)=>${keyModel.dataType}.fromJson(e))?.toList():null,";
       } else {
-        return "${keyModel.key}: json['${keyModel.originalKey}'] != null ? json['${keyModel.originalKey}'].cast<${keyModel.dataType}>(): null,";
+        return "${keyModel.key}: json.containsKey('${keyModel.originalKey}') ? json['${keyModel.originalKey}']?.cast<${keyModel.dataType}>(): null,";
       }
     } else {
       if (keyModel.isClass) {
-        return "${keyModel.key}: json['${keyModel.originalKey}'] != null ? "
+        return "${keyModel.key}: json.containsKey('${keyModel.originalKey}') ? "
             "${keyModel.dataType}.fromJson(json['${keyModel.originalKey}']):null,";
       } else {
         return "${keyModel.key}: json['${keyModel.originalKey}'],";
@@ -145,16 +149,16 @@ class JsonGen {
   String genFieldToJson(KeyModel keyModel) {
     if (keyModel.isArray) {
       if (keyModel.isClass) {
-        return "if (this.${keyModel.key} != null) {\n"
-            "data['${keyModel.originalKey}'] = this.${keyModel.key}.map((v) => v.toJson()).toList();"
+        return "if (${keyModel.key} != null) {\n"
+            "data['${keyModel.originalKey}'] = ${keyModel.key}?.map((v) => v.toJson()).toList();"
             "\n}";
       } else {
         return "data['${keyModel.originalKey}'] = ${keyModel.key};";
       }
     } else {
       if (keyModel.isClass) {
-        return "if (this.${keyModel.key} != null) {\n"
-            "data['${keyModel.originalKey}'] = this.${keyModel.key}.toJson();"
+        return "if ${keyModel.key} != null) {\n"
+            "data['${keyModel.originalKey}'] =${keyModel.key}?.toJson();"
             "\n}";
       } else {
         return "data['${keyModel.originalKey}'] = ${keyModel.key};";
@@ -165,7 +169,8 @@ class JsonGen {
   /// ==================================================================================================
 
   ///Add Try catch to Source
-  String doWithTryCatch(String source, {bool hasReturnNull = true}) {
+  String doWithTryCatch(String source,
+      {bool hasReturnNull = true, String className}) {
     if (!hasTryCatch) {
       return source;
     }
@@ -174,7 +179,7 @@ class JsonGen {
         "} catch (e, stacktrace) {\n"
         "LogUtils.d(e, stacktrace: stacktrace.toString());\n"
         "}\n"
-        "${hasReturnNull ? "return null;\n" : ""}";
+        "${hasReturnNull ? "throw 'Wrong data $className';\n" : ""}";
   }
 
   /// ==================================================================================================

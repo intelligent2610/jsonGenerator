@@ -37,6 +37,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final JsonGen jsonGen = JsonGen();
 
   bool hasTryCatch = true;
+  bool useNullSafety = true;
   bool hasHasCopyWith = true;
   bool hasEquatable = true;
   bool hasConstructor = true;
@@ -149,6 +150,23 @@ class _MyHomePageState extends State<MyHomePage> {
                                       }),
                                 )
                               ],
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Expanded(
+                                  flex: 1,
+                                  child: CheckboxListTile(
+                                      value: useNullSafety,
+                                      title: Text("Use Null-Safety"),
+                                      onChanged: (v) {
+                                        setState(() {
+                                          useNullSafety = v;
+                                        });
+                                      }),
+                                ),
+                                Expanded(flex: 1, child: SizedBox()),
+                              ],
                             )
                           ],
                         ),
@@ -201,6 +219,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                 controller.text,
                                 useEquatable: hasEquatable,
                                 hasConstructor: hasConstructor,
+                                useNullSafety: useNullSafety,
                                 hasCopyWith: hasHasCopyWith,
                                 hasTryCatch: hasTryCatch,
                                 pathLog: controllerLogPath.text,
