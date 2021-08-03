@@ -123,8 +123,8 @@ class JsonGen {
       return "";
     }
     return "@override\n"
-        "List<Object> get props => [\n"
-        "${data.entries.map((e) => '${e.key.key}${useNullSafety ? "!" : ""},').toList().join("\n")}\n"
+        "List<Object${useNullSafety ? "?" : ""}> get props => [\n"
+        "${data.entries.map((e) => '${e.key.key},').toList().join("\n")}\n"
         "];";
   }
 
@@ -303,6 +303,8 @@ class JsonGen {
       return key.decapitalize();
     }
   }
+
+
 }
 
 extension StringExtension on String {

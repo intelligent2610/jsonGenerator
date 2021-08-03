@@ -76,7 +76,7 @@ class _MyHomePageState extends State<MyHomePage> {
                           enabledBorder: InputBorder.none,
                           errorBorder: InputBorder.none,
                           disabledBorder: InputBorder.none,
-                          hintText: "Enter class name"),
+                          hintText: "Enter file name (Ex: user_model)"),
                     ),
                   ),
                   if (hasTryCatch)
@@ -232,7 +232,9 @@ class _MyHomePageState extends State<MyHomePage> {
                                   jsonGen.jsonMap,
                                   controllerClassName.text.isEmpty
                                       ? "FlutterClass"
-                                      : controllerClassName.text);
+                                      : jsonGen.genClassName(controllerClassName.text));
+
+                              downloadFileModel();
                             } catch (e) {
                               showToast(e.toString());
                               return;
@@ -348,9 +350,29 @@ class _MyHomePageState extends State<MyHomePage> {
     super.dispose();
   }
 
+  void downloadFileModel() {
+    final logUtilSource = jsonGen.doGen();
+    final fileName = controllerClassName.text.replaceAll('.dart', '');
+    final bytes = utf8.encode(logUtilSource);
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.document.createElement('a') as html.AnchorElement
+      ..href = url
+      ..style.display = 'none'
+      ..download = '$fileName.dart';
+    html.document.body.children.add(anchor);
+
+// download
+    anchor.click();
+
+// cleanup
+    html.document.body.children.remove(anchor);
+    html.Url.revokeObjectUrl(url);
+  }
+
   void downloadLogUtil() {
     final logUtilSource =
-        "import 'package:flutter/foundation.dart'; class LogUtils { static void d( dynamic data, { String${useNullSafety?"?":""} stacktrace, bool fullStacktrace = false, }) { if (kReleaseMode) { return; } print(\'[\${DateTime.now().toUtc()}] \${data?.toString()}\'); if ((stacktrace?.isNotEmpty ?? false) && fullStacktrace) { final listLine = stacktrace?.split('\\n'); listLine${useNullSafety?"!":""} .forEach(print); } else if (stacktrace?.isNotEmpty ?? false) { final listLine = stacktrace?.split('\\n'); listLine${useNullSafety?"!":""} .isNotEmpty ? print(listLine[0]) : ''; } } }";
+        "import 'package:flutter/foundation.dart'; class LogUtils { static void d( dynamic data, { String${useNullSafety ? "?" : ""} stacktrace, bool fullStacktrace = false, }) { if (kReleaseMode) { return; } print(\'[\${DateTime.now().toUtc()}] \${data?.toString()}\'); if ((stacktrace?.isNotEmpty ?? false) && fullStacktrace) { final listLine = stacktrace?.split('\\n'); listLine${useNullSafety ? "!" : ""} .forEach(print); } else if (stacktrace?.isNotEmpty ?? false) { final listLine = stacktrace?.split('\\n'); listLine${useNullSafety ? "!" : ""} .isNotEmpty ? print(listLine[0]) : ''; } } }";
     final bytes = utf8.encode(logUtilSource);
     final blob = html.Blob([bytes]);
     final url = html.Url.createObjectUrlFromBlob(blob);
