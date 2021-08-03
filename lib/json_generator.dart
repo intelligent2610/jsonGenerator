@@ -157,7 +157,7 @@ class JsonGen {
       }
     } else {
       if (keyModel.isClass) {
-        return "if ${keyModel.key} != null) {\n"
+        return "if (${keyModel.key} != null) {\n"
             "data['${keyModel.originalKey}'] =${keyModel.key}?.toJson();"
             "\n}";
       } else {
